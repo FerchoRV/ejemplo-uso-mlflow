@@ -1,6 +1,7 @@
-# Punto de entrada estándar del proyecto: mlflow run .
-# Los comandos nombran el módulo de cada paso. Esos módulos son
-# documentos de responsabilidad y todavía no implementan el flujo.
+# Punto de entrada estándar del proyecto: mlflow run . --env-manager local
+# Carga antes .env (MLFLOW_TRACKING_URI y MLFLOW_EXPERIMENT_NAME) para
+# que el run padre quede en el mismo almacén que src/config.py.
+# --env-manager local reutiliza el entorno ya instalado (.envmlops).
 
 name: ejemplo-mlops
 
