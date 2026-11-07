@@ -1,0 +1,13 @@
+# Punto de entrada estándar del proyecto: mlflow run .
+# Los comandos nombran el módulo de cada paso. Esos módulos son
+# documentos de responsabilidad y todavía no implementan el flujo.
+
+name: ejemplo-mlops
+
+entry_points:
+  main:
+    command: "python src/train.py"
+  register:
+    command: "python src/register.py"
+  predict:
+    command: "python src/predict.py"
