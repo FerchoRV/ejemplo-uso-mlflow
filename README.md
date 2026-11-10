@@ -117,3 +117,13 @@ Las columnas reales dependen del conjunto que quede en `data/`.
 | `.venv/`, `.envmlops/` | entornos de Python |
 | `mlflow.db` | metadatos generados: parámetros, métricas, versiones |
 | `mlruns/` | archivos generados: modelos, gráficos, CSV |
+
+## Cargar imagen a docker hub 
+
+- docker login
+
+- mlflow models build-docker \
+  -m "models:/nombre_de_tu_modelo@challenger" \
+  -n "tu_usuario_dockerhub/mi-modelo-challenger:latest"
+
+- docker push tu_usuario_dockerhub/mi-modelo-challenger:latest

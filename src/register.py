@@ -16,7 +16,7 @@ import config
 
 
 def _uri_modelo(cliente: MlflowClient, run_id: str) -> str:
-    """En MLflow 3 el estimador queda como logged model, no como carpeta del run."""
+    """En MLflow 3 el modelo queda como logged model, no como carpeta del run."""
     run = cliente.get_run(run_id)
     salidas = []
     if run.outputs is not None and run.outputs.model_outputs:

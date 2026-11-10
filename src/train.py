@@ -3,9 +3,9 @@
 Cada modelo es un run del experimento `MLFLOW_EXPERIMENT_NAME`:
 regresión logística, SVM, árbol de decisión y random forest. En todos
 se registra accuracy sobre la partición de prueba, los parámetros y el
-estimador, junto con el preprocesador necesario para predecir. La
-columna Dataset del run apunta a la partición de entrenamiento y a la
-de prueba.
+clasificador. El artefacto `model` es solo ese estimador: la API espera
+las columnas ya codificadas y escaladas. La columna Dataset del run
+apunta a la partición de entrenamiento y a la de prueba.
 
 Es el entry point `main` de `MLproject` (`mlflow run .`).
 """
@@ -13,10 +13,7 @@ Es el entry point `main` de `MLproject` (`mlflow run .`).
 from __future__ import annotations
 
 import os
-import tempfile
-from pathlib import Path
 
-import joblib
 import mlflow
 import mlflow.sklearn
 from sklearn.ensemble import RandomForestClassifier
@@ -77,7 +74,7 @@ def entrenar():
     config.activar_seguimiento()
     mlflow.sklearn.autolog(disable=True)
 
-    x_train, x_test, y_train, y_test, preprocesador, material = cargar_particion()
+    x_train, x_test, y_train, y_test, _, material = cargar_particion()
     with mlflow.start_run(run_name="preprocesamiento"):
         registrar_preprocesamiento(material)
     print(
@@ -86,32 +83,28 @@ def entrenar():
     )
 
     datos_train, datos_test = _datasets(x_train, y_train, x_test, y_test)
+    ejemplo = x_train.head(1)
 
-    with tempfile.TemporaryDirectory() as tmp:
-        ruta_pre = Path(tmp) / "preprocessor.joblib"
-        joblib.dump(preprocesador, ruta_pre)
+    for nombre, modelo in _modelos():
+        with mlflow.start_run(run_name=nombre):
+            mlflow.log_input(datos_train, context="training")
+            mlflow.log_input(datos_test, context="evaluation")
+            modelo.fit(x_train, y_train)
+            prediccion = modelo.predict(x_test)
+            accuracy = accuracy_score(y_test, prediccion)
 
-        for nombre, modelo in _modelos():
-            with mlflow.start_run(run_name=nombre):
-                mlflow.log_input(datos_train, context="training")
-                mlflow.log_input(datos_test, context="evaluation")
-                modelo.fit(x_train, y_train)
-                prediccion = modelo.predict(x_test)
-                accuracy = accuracy_score(y_test, prediccion)
-
-                mlflow.log_params(_parametros(modelo))
-                mlflow.log_param("estrategia", nombre)
-                mlflow.log_param("test_size", config.TEST_SIZE)
-                mlflow.log_param("random_seed", config.RANDOM_SEED)
-                mlflow.log_metric(config.METRIC, accuracy)
-                mlflow.log_artifact(str(ruta_pre))
-                mlflow.sklearn.log_model(
-                    modelo,
-                    name="model",
-                    input_example=x_train.head(2),
-                    serialization_format="pickle",
-                )
-                print(f"{nombre}: {config.METRIC}={accuracy:.6f}")
+            mlflow.log_params(_parametros(modelo))
+            mlflow.log_param("estrategia", nombre)
+            mlflow.log_param("test_size", config.TEST_SIZE)
+            mlflow.log_param("random_seed", config.RANDOM_SEED)
+            mlflow.log_metric(config.METRIC, accuracy)
+            mlflow.sklearn.log_model(
+                modelo,
+                name="model",
+                input_example=ejemplo,
+                serialization_format="pickle",
+            )
+            print(f"{nombre}: {config.METRIC}={accuracy:.6f}")
 
 
 if __name__ == "__main__":
