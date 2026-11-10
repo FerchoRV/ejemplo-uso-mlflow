@@ -40,10 +40,13 @@ EDAD_MAX = 70
 CATEGORICAS = (
     "person_home_ownership",
     "loan_intent",
+)
+
+COLUMNS_TO_DROP = (
+    "cb_person_cred_hist_length",
     "loan_grade",
     "cb_person_default_on_file",
 )
-
 
 def activar_seguimiento():
     """Apunta MLflow al almacén y al experimento de este proyecto."""

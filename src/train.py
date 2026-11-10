@@ -3,7 +3,9 @@
 Cada modelo es un run del experimento `MLFLOW_EXPERIMENT_NAME`:
 regresión logística, SVM, árbol de decisión y random forest. En todos
 se registra accuracy sobre la partición de prueba, los parámetros y el
-estimador, junto con el preprocesador necesario para predecir.
+estimador, junto con el preprocesador necesario para predecir. La
+columna Dataset del run apunta a la partición de entrenamiento y a la
+de prueba.
 
 Es el entry point `main` de `MLproject` (`mlflow run .`).
 """
@@ -24,7 +26,7 @@ from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 
 import config
-from data import cargar_particion
+from data import cargar_particion, registrar_preprocesamiento
 
 
 def _modelos():
@@ -35,6 +37,26 @@ def _modelos():
         ("arbol_decision", DecisionTreeClassifier(random_state=semilla)),
         ("random_forest", RandomForestClassifier(random_state=semilla)),
     ]
+
+
+def _datasets(x_train, y_train, x_test, y_test):
+    """Arma los dos conjuntos que muestra la columna Dataset de cada run."""
+    origen = str(config.DATA_PATH)
+
+    def conjunto(features, objetivo, nombre):
+        tabla = features.copy()
+        tabla[config.TARGET] = objetivo
+        return mlflow.data.from_pandas(
+            tabla,
+            source=origen,
+            targets=config.TARGET,
+            name=nombre,
+        )
+
+    return (
+        conjunto(x_train, y_train, "credit_risk_train"),
+        conjunto(x_test, y_test, "credit_risk_test"),
+    )
 
 
 def _parametros(modelo) -> dict:
@@ -55,11 +77,15 @@ def entrenar():
     config.activar_seguimiento()
     mlflow.sklearn.autolog(disable=True)
 
-    x_train, x_test, y_train, y_test, preprocesador = cargar_particion()
+    x_train, x_test, y_train, y_test, preprocesador, material = cargar_particion()
+    with mlflow.start_run(run_name="preprocesamiento"):
+        registrar_preprocesamiento(material)
     print(
         f"Partición: train {x_train.shape[0]} filas, "
         f"test {x_test.shape[0]} filas, {x_train.shape[1]} features"
     )
+
+    datos_train, datos_test = _datasets(x_train, y_train, x_test, y_test)
 
     with tempfile.TemporaryDirectory() as tmp:
         ruta_pre = Path(tmp) / "preprocessor.joblib"
@@ -67,6 +93,8 @@ def entrenar():
 
         for nombre, modelo in _modelos():
             with mlflow.start_run(run_name=nombre):
+                mlflow.log_input(datos_train, context="training")
+                mlflow.log_input(datos_test, context="evaluation")
                 modelo.fit(x_train, y_train)
                 prediccion = modelo.predict(x_test)
                 accuracy = accuracy_score(y_test, prediccion)
